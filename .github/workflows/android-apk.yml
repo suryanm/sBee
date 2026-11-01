@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,7 +18,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -29,7 +32,17 @@ jobs:
       - name: Build APK
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon
+      - name: Rename APK
+        run: mv android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/SpellingBeeBuzz.apk
       - uses: actions/upload-artifact@v4
         with:
           name: spelling-bee-buzz-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: android/app/build/outputs/apk/release/SpellingBeeBuzz.apk
+      - name: Publish APK as the latest release (easy phone download)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Spelling Bee Buzz build ${{ github.run_number }}
+          make_latest: true
+          body: Install SpellingBeeBuzz.apk on an Android phone (allow installing unknown apps when asked).
+          files: android/app/build/outputs/apk/release/SpellingBeeBuzz.apk

@@ -13,7 +13,9 @@ Buzzy the bee says a word, your child spells it **out loud**, and the app checks
 - **Built-in lists**: Scripps 2026–27 study words for 3rd grade (One Bee) and 4th grade (Two Bee).
 
 ## Getting the Android app
-Every push to `main` builds an installable APK in GitHub Actions
+Every push to `main` builds an installable APK and publishes it on the **Releases** page
+(open https://github.com/suryanm/sBee/releases/latest on the phone and tap `SpellingBeeBuzz.apk`).
+It is also attached to each GitHub Actions run
 (**Actions → Build Android APK → latest run → Artifacts**). Unzip it and open the `.apk` on the phone
 (allow "install unknown apps" when asked).
 
