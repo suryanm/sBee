@@ -45,6 +45,12 @@ export default function ResultsScreen({
           {right} / {results.length} words right
         </Text>
         <Text style={styles.stars}>+{starsEarned} ⭐</Text>
+        {results.some((r) => r.sticker) && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Stickers you won 🎁</Text>
+            <Text style={styles.stickers}>{results.map((r) => r.sticker ?? '').join(' ')}</Text>
+          </View>
+        )}
         {newBadge && (
           <View style={styles.badge}>
             <Text style={styles.badgeEmoji}>{newBadge.emoji}</Text>
@@ -79,6 +85,7 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 20, fontWeight: '800', color: C.brown },
   card: { backgroundColor: C.white, borderRadius: 20, padding: 16, width: '100%', maxWidth: 360, marginBottom: 12, borderWidth: 3, borderColor: '#F1E3B8' },
   cardTitle: { fontSize: 20, fontWeight: '900', color: C.brown, marginBottom: 6, textAlign: 'center' },
+  stickers: { fontSize: 40, textAlign: 'center', lineHeight: 52 },
   word: { fontSize: 22, fontWeight: '700', color: C.purple, textAlign: 'center', marginVertical: 2 },
   btn: { width: '100%', maxWidth: 320 },
 });

@@ -92,9 +92,11 @@ export default function App() {
         lastMissed: r.firstTry ? s.lastMissed : Date.now(),
       };
     }
+    const stickers = { ...data.stickers };
+    for (const r of results) if (r.sticker) stickers[r.sticker] = (stickers[r.sticker] ?? 0) + 1;
     const stars = data.stars + starsEarned;
     const newBadge = BADGES.find((b) => data.stars < b.stars && stars >= b.stars);
-    update({ ...data, stars, wordStats, roundsPlayed: data.roundsPlayed + 1, bestStreak: Math.max(data.bestStreak, bestStreak) });
+    update({ ...data, stars, stickers, wordStats, roundsPlayed: data.roundsPlayed + 1, bestStreak: Math.max(data.bestStreak, bestStreak) });
     setScreen({ name: 'results', list, results, stars: starsEarned, newBadge });
   };
 
@@ -117,6 +119,8 @@ export default function App() {
             key={screen.key}
             words={screen.words}
             allowOnline={data.settings.allowOnlineSpeech}
+            flashWord={data.settings.flashWord}
+            ownedStickers={data.stickers}
             onFinish={(r, s, b) => finish(screen.list, r, s, b)}
             onQuit={() => setScreen({ name: 'home' })}
           />

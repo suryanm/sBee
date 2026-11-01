@@ -4,6 +4,7 @@ import Mascot from '../components/Mascot';
 import { BigButton, C } from '../components/ui';
 import type { WordList } from '../data/wordlists';
 import { AppData, BADGES } from '../storage';
+import { STICKERS } from '../data/stickers';
 
 export default function HomeScreen({
   data,
@@ -43,6 +44,24 @@ export default function HomeScreen({
       {trickyCount > 0 && (
         <BigButton label={`🎯 My tricky words (${trickyCount})`} color={C.purple} textColor={C.white} onPress={onPlayTricky} style={styles.listBtn} />
       )}
+
+      <View style={styles.badgeCard}>
+        <Text style={styles.badgeTitle}>
+          My sticker book ({STICKERS.filter((st) => data.stickers[st.emoji]).length}/{STICKERS.length})
+        </Text>
+        <View style={styles.stickerGrid}>
+          {STICKERS.map((st) => {
+            const n = data.stickers[st.emoji] ?? 0;
+            return (
+              <View key={st.emoji} style={[styles.stickerCell, !n && styles.stickerEmpty]}>
+                <Text style={styles.stickerEmoji}>{n ? st.emoji : '❔'}</Text>
+                {n > 1 && <Text style={styles.stickerCount}>×{n}</Text>}
+              </View>
+            );
+          })}
+        </View>
+        <Text style={styles.hint}>Every word you spell right wins a sticker!</Text>
+      </View>
 
       <View style={styles.badgeCard}>
         <Text style={styles.badgeTitle}>My badges</Text>
@@ -87,5 +106,10 @@ const styles = StyleSheet.create({
   locked: { opacity: 0.5 },
   badgeName: { fontSize: 12, fontWeight: '700', color: C.gray, textAlign: 'center' },
   nextBadge: { fontSize: 16, fontWeight: '700', color: C.brown, textAlign: 'center', marginTop: 8 },
+  stickerGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6 },
+  stickerCell: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#FFF3C4', alignItems: 'center', justifyContent: 'center' },
+  stickerEmpty: { backgroundColor: '#F3EFE6' },
+  stickerEmoji: { fontSize: 28 },
+  stickerCount: { position: 'absolute', right: 2, bottom: 0, fontSize: 11, fontWeight: '800', color: C.purple },
   hint: { fontSize: 14, color: C.gray, textAlign: 'center', marginTop: 4 },
 });

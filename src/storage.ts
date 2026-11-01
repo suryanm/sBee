@@ -10,10 +10,12 @@ export type AppData = {
   roundsPlayed: number;
   wordStats: Record<string, WordStat>; // keyed by lowercase word
   customLists: WordList[];
+  stickers: Record<string, number>; // emoji -> how many collected
   settings: {
     wordsPerRound: number;
     allowOnlineSpeech: boolean; // off by default: voice stays on the device
     childName: string;
+    flashWord: boolean; // show the word on screen while it is read aloud
   };
 };
 
@@ -25,7 +27,8 @@ export const DEFAULT_DATA: AppData = {
   roundsPlayed: 0,
   wordStats: {},
   customLists: [],
-  settings: { wordsPerRound: 10, allowOnlineSpeech: false, childName: '' },
+  stickers: {},
+  settings: { wordsPerRound: 10, allowOnlineSpeech: false, childName: '', flashWord: true },
 };
 
 export async function loadData(): Promise<AppData> {

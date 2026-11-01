@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Speech from 'expo-speech';
 import * as Haptics from 'expo-haptics';
 import Mascot, { Mood } from '../components/Mascot';
@@ -7,9 +7,10 @@ import Celebration from '../components/Celebration';
 import { BigButton, C } from '../components/ui';
 import type { Word } from '../data/wordlists';
 import { checkSpelling } from '../speech/letters';
+import { pickSticker, Sticker } from '../data/stickers';
 import { useSpellListener } from '../speech/useSpellListener';
 
-export type WordResult = { word: string; correct: boolean; firstTry: boolean };
+export type WordResult = { word: string; correct: boolean; firstTry: boolean; sticker?: string };
 
 type Phase = 'ask' | 'right' | 'retry' | 'reveal';
 
@@ -17,19 +18,23 @@ const CHEERS = ['Great job!', 'You got it!', 'Bee-autiful spelling!', 'Amazing!'
 const ALMOST = ['So close! Try again.', 'Almost! Give it another try.', 'Nice try! One more time.'];
 const pick = (a: string[]) => a[Math.floor(Math.random() * a.length)];
 
-function say(text: string, rate = 0.9) {
+function say(text: string, rate = 0.9, onDone?: () => void) {
   Speech.stop();
-  Speech.speak(text, { language: 'en-US', rate, pitch: 1.1 });
+  Speech.speak(text, { language: 'en-US', rate, pitch: 1.1, onDone, onStopped: onDone, onError: onDone });
 }
 
 export default function PlayScreen({
   words,
   allowOnline,
+  flashWord,
+  ownedStickers,
   onFinish,
   onQuit,
 }: {
   words: Word[];
   allowOnline: boolean;
+  flashWord: boolean;
+  ownedStickers: Record<string, number>;
   onFinish: (results: WordResult[], starsEarned: number, bestStreak: number) => void;
   onQuit: () => void;
 }) {
@@ -46,7 +51,32 @@ export default function PlayScreen({
   const bestStreak = useRef(0);
   const results = useRef<WordResult[]>([]);
 
+  const flash = useRef(new Animated.Value(0)).current;
+  const [flashing, setFlashing] = useState(false);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const current = words[index];
+  const [sticker, setSticker] = useState<(Sticker & { isNew: boolean }) | null>(null);
+  const stickerAnim = useRef(new Animated.Value(0)).current;
+
+  /** Says the word and, if enabled, flashes it big on screen until the voice finishes. */
+  const sayWord = (text: string, rate = 0.9) => {
+    if (!flashWord) return say(text, rate);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    setFlashing(true);
+    flash.stopAnimation();
+    Animated.spring(flash, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }).start();
+    const hide = () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => {
+        Animated.timing(flash, { toValue: 0, duration: 250, easing: Easing.in(Easing.quad), useNativeDriver: true }).start(() =>
+          setFlashing(false),
+        );
+      }, 700);
+    };
+    say(text, rate, hide);
+    flashTimer.current = setTimeout(hide, 5000); // safety net if the voice never reports done
+  };
   const target = current.word.toLowerCase().replace(/[^a-z]/g, '');
 
   const evaluate = useCallback(
@@ -65,13 +95,19 @@ export default function PlayScreen({
         setStreak(newStreak);
         bestStreak.current = Math.max(bestStreak.current, newStreak);
         setStars((s) => s + 1 + bonus);
-        results.current.push({ word: current.word, correct: true, firstTry });
+        const roundStickers = results.current.map((r) => r.sticker).filter(Boolean) as string[];
+        const st = pickSticker(ownedStickers, roundStickers);
+        const isNew = !ownedStickers[st.emoji] && !roundStickers.includes(st.emoji);
+        results.current.push({ word: current.word, correct: true, firstTry, sticker: st.emoji });
+        setSticker({ ...st, isNew });
+        stickerAnim.setValue(0);
+        Animated.spring(stickerAnim, { toValue: 1, friction: 4, tension: 90, delay: 350, useNativeDriver: true }).start();
         setPhase('right');
         setMood('happy');
         setCelebrate((c) => c + 1);
         const cheer = pick(CHEERS);
         setMessage(bonus ? `${cheer} 🔥 ${newStreak} in a row: bonus star!` : cheer);
-        say(cheer);
+        say(`${cheer} You won a ${st.name} sticker!`);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       } else if (phase === 'ask') {
         setPhase('retry');
@@ -108,12 +144,13 @@ export default function PlayScreen({
   // New word: reset and read it out.
   useEffect(() => {
     setPhase('ask');
+    setSticker(null);
     setMood('idle');
     setHeard('');
     setTyped('');
     setMessage('');
     listener.reset();
-    const t = setTimeout(() => say(`Spell: ${current.word}.`), 400);
+    const t = setTimeout(() => sayWord(`Spell: ${current.word}.`), 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
@@ -205,8 +242,8 @@ export default function PlayScreen({
 
         {answering && (
           <View style={styles.helpRow}>
-            <BigButton small label="🔊 Again" color={C.sky} onPress={() => say(`${current.word}.`)} />
-            <BigButton small label="🐢 Slow" color={C.sky} onPress={() => say(current.word, 0.5)} />
+            <BigButton small label="🔊 Again" color={C.sky} onPress={() => sayWord(`${current.word}.`)} />
+            <BigButton small label="🐢 Slow" color={C.sky} onPress={() => sayWord(current.word, 0.5)} />
             {current.sentence ? (
               <BigButton small label="💬 Sentence" color={C.sky} onPress={() => say(`${current.sentence} ${current.word}.`)} />
             ) : null}
@@ -254,10 +291,44 @@ export default function PlayScreen({
           </View>
         )}
 
+        {phase === 'right' && sticker && (
+          <Animated.View
+            style={[
+              styles.stickerCard,
+              {
+                opacity: stickerAnim,
+                transform: [
+                  { scale: stickerAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
+                  { rotate: stickerAnim.interpolate({ inputRange: [0, 1], outputRange: ['-30deg', '0deg'] }) },
+                ],
+              },
+            ]}
+          >
+            <Text style={styles.stickerEmoji}>{sticker.emoji}</Text>
+            <Text style={styles.stickerText}>
+              {sticker.isNew ? `New sticker: ${sticker.name}!` : `${sticker.name} sticker!`}
+            </Text>
+          </Animated.View>
+        )}
+
         {(phase === 'right' || phase === 'reveal') && (
           <BigButton label={index + 1 >= words.length ? '🏁 See my stars' : 'Next word ➜'} onPress={next} color={C.green} textColor={C.white} style={{ minWidth: 220 }} />
         )}
       </ScrollView>
+      {flashing && (
+        <View pointerEvents="none" style={styles.flashWrap}>
+          <Animated.View
+            style={[
+              styles.flashCard,
+              { opacity: flash, transform: [{ scale: flash.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) }] },
+            ]}
+          >
+            <Text style={styles.flashText} adjustsFontSizeToFit numberOfLines={1}>
+              {current.word}
+            </Text>
+          </Animated.View>
+        </View>
+      )}
       <Celebration trigger={celebrate} />
     </View>
   );
@@ -265,6 +336,12 @@ export default function PlayScreen({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
+  stickerCard: { alignItems: 'center', backgroundColor: C.white, borderRadius: 24, paddingVertical: 10, paddingHorizontal: 22, marginTop: 14, borderWidth: 4, borderColor: C.purple, borderStyle: 'dashed' },
+  stickerEmoji: { fontSize: 72 },
+  stickerText: { fontSize: 18, fontWeight: '800', color: C.purple },
+  flashWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,248,225,0.6)' },
+  flashCard: { backgroundColor: C.white, borderRadius: 28, paddingVertical: 28, paddingHorizontal: 30, borderWidth: 5, borderColor: C.honey, maxWidth: '90%', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 6 },
+  flashText: { fontSize: 56, fontWeight: '900', color: C.brown, textAlign: 'center' },
   topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, gap: 12 },
   quit: { fontSize: 26, color: C.gray, fontWeight: '800' },
   progressTrack: { flex: 1, height: 14, borderRadius: 7, backgroundColor: '#F1E3B8', overflow: 'hidden' },

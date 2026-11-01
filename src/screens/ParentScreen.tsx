@@ -226,6 +226,14 @@ function Settings({ data, onChange }: { data: AppData; onChange: (d: AppData) =>
 
       <View style={styles.switchRow}>
         <View style={{ flex: 1 }}>
+          <Text style={styles.listName}>Show the word while it's read aloud</Text>
+          <Text style={styles.muted}>The word flashes on screen while Buzzy says it, then hides before your child spells. Turn off for harder, listen-only practice.</Text>
+        </View>
+        <Switch value={data.settings.flashWord} onValueChange={(flashWord) => set({ flashWord })} />
+      </View>
+
+      <View style={styles.switchRow}>
+        <View style={{ flex: 1 }}>
           <Text style={styles.listName}>Allow online speech recognition</Text>
           <Text style={styles.muted}>
             Off (recommended): your child's voice is processed only on this phone and the app works offline. Turn on only if the phone has no offline English
