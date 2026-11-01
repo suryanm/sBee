@@ -19,7 +19,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@v3
       - run: npm ci
       - name: Typecheck and tests
         run: |
