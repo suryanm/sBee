@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from
 import { BigButton, C } from '../components/ui';
 import { BUILT_IN_LISTS, WordList } from '../data/wordlists';
 import { AppData, DEFAULT_DATA, parseWordInput, trickyWords } from '../storage';
+import { useSpellListener } from '../speech/useSpellListener';
 
 type Tab = 'progress' | 'lists' | 'settings';
 
@@ -234,14 +235,17 @@ function Settings({ data, onChange }: { data: AppData; onChange: (d: AppData) =>
 
       <View style={styles.switchRow}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.listName}>Allow online speech recognition</Text>
+          <Text style={styles.listName}>On-device voice only</Text>
           <Text style={styles.muted}>
-            Off (recommended): your child's voice is processed only on this phone and the app works offline. Turn on only if the phone has no offline English
-            speech pack; the voice is then sent to the phone's speech service (Google or Apple).
+            The app always tries the phone's offline speech first, so the voice stays on the phone. If offline English isn't installed, it uses the phone's
+            standard speech service (Google or Apple) instead. Turn this on to never use the online service; voice then only works once the offline English
+            pack is downloaded.
           </Text>
         </View>
-        <Switch value={data.settings.allowOnlineSpeech} onValueChange={(allowOnlineSpeech) => set({ allowOnlineSpeech })} />
+        <Switch value={data.settings.onDeviceOnly} onValueChange={(onDeviceOnly) => set({ onDeviceOnly })} />
       </View>
+
+      <MicTest onDeviceOnly={data.settings.onDeviceOnly} />
 
       <Text style={styles.h2}>Reset</Text>
       <BigButton
@@ -260,7 +264,39 @@ function Settings({ data, onChange }: { data: AppData; onChange: (d: AppData) =>
   );
 }
 
+function MicTest({ onDeviceOnly }: { onDeviceOnly: boolean }) {
+  const [result, setResult] = useState('');
+  const l = useSpellListener({ word: '', onDeviceOnly, onDone: (alts) => setResult(alts[0] ?? '(nothing heard)') });
+  const listening = l.status === 'listening';
+  return (
+    <View style={styles.listRow}>
+      <Text style={styles.listName}>🎤 Test the microphone</Text>
+      <Text style={styles.muted}>Tap Start and say "B E E". You should see the bar move and the words appear.</Text>
+      <BigButton
+        small
+        label={listening ? '⏹️ Stop' : '▶️ Start test'}
+        color={listening ? C.red : C.green}
+        textColor={C.white}
+        onPress={() => {
+          if (listening) l.stop();
+          else {
+            setResult('');
+            l.start();
+          }
+        }}
+      />
+      <View style={styles.bar}>
+        <View style={[styles.barFill, { width: `${l.volume * 10}%` }]} />
+      </View>
+      <Text style={styles.diag}>Status: {l.status}{l.mode ? ` · ${l.mode === 'on-device' ? 'offline (on this phone)' : 'standard speech service'}` : ''}</Text>
+      {(l.rawText || result) ? <Text style={styles.diag}>Heard: “{l.rawText || result}”</Text> : null}
+      {l.lastError ? <Text style={styles.diag}>Last error: {l.lastError}</Text> : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  diag: { fontSize: 14, color: C.brown, marginTop: 6 },
   root: { flex: 1, backgroundColor: '#FAFAF7' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
   title: { fontSize: 26, fontWeight: '900', color: C.brown },

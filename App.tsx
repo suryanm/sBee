@@ -118,7 +118,7 @@ export default function App() {
           <PlayScreen
             key={screen.key}
             words={screen.words}
-            allowOnline={data.settings.allowOnlineSpeech}
+            onDeviceOnly={data.settings.onDeviceOnly}
             flashWord={data.settings.flashWord}
             ownedStickers={data.stickers}
             onFinish={(r, s, b) => finish(screen.list, r, s, b)}

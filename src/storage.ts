@@ -13,7 +13,7 @@ export type AppData = {
   stickers: Record<string, number>; // emoji -> how many collected
   settings: {
     wordsPerRound: number;
-    allowOnlineSpeech: boolean; // off by default: voice stays on the device
+    onDeviceOnly: boolean; // true: never use the phone's online speech service
     childName: string;
     flashWord: boolean; // show the word on screen while it is read aloud
   };
@@ -28,7 +28,7 @@ export const DEFAULT_DATA: AppData = {
   wordStats: {},
   customLists: [],
   stickers: {},
-  settings: { wordsPerRound: 10, allowOnlineSpeech: false, childName: '', flashWord: true },
+  settings: { wordsPerRound: 10, onDeviceOnly: false, childName: '', flashWord: true },
 };
 
 export async function loadData(): Promise<AppData> {

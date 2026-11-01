@@ -25,14 +25,14 @@ function say(text: string, rate = 0.9, onDone?: () => void) {
 
 export default function PlayScreen({
   words,
-  allowOnline,
+  onDeviceOnly,
   flashWord,
   ownedStickers,
   onFinish,
   onQuit,
 }: {
   words: Word[];
-  allowOnline: boolean;
+  onDeviceOnly: boolean;
   flashWord: boolean;
   ownedStickers: Record<string, number>;
   onFinish: (results: WordResult[], starsEarned: number, bestStreak: number) => void;
@@ -129,7 +129,7 @@ export default function PlayScreen({
 
   const listener = useSpellListener({
     word: target,
-    allowOnline,
+    onDeviceOnly,
     onDone: (alts) => {
       setMood('idle');
       if (!alts.length) {
@@ -162,7 +162,7 @@ export default function PlayScreen({
   }, []);
 
   useEffect(() => {
-    if (listener.status === 'offline-unavailable' || listener.status === 'no-permission' || listener.status === 'error') {
+    if (listener.status === 'offline-unavailable' || listener.status === 'no-permission' || listener.status === 'unavailable') {
       setMood('idle');
       setTyping(true);
     }
@@ -232,13 +232,22 @@ export default function PlayScreen({
 
         {listener.status === 'offline-unavailable' && (
           <Text style={styles.note}>
-            Voice needs the phone's offline English speech pack. A grown-up can download it in the phone's Settings (search "offline speech"), or turn on online speech in the Parent area. For now, tap the letters!
+            Voice needs the phone's offline English speech pack. A grown-up can download it in the phone's Settings (search "offline speech"), or turn off "On-device voice only" in the Parent area. For now, tap the letters!
           </Text>
         )}
         {listener.status === 'no-permission' && (
           <Text style={styles.note}>The microphone is off for this app. A grown-up can turn it on in the phone's Settings. For now, tap the letters!</Text>
         )}
-        {listener.status === 'error' && <Text style={styles.note}>The microphone had a hiccup. Try again, or tap the letters!</Text>}
+        {listener.status === 'unavailable' && (
+          <Text style={styles.note}>This phone has no speech recognizer turned on. A grown-up can install or enable the Google app, or you can tap the letters!</Text>
+        )}
+        {listener.status === 'error' && (
+          <Text style={styles.note}>
+            The microphone had a hiccup. Tap Start to try again, or tap the letters!{'\n'}
+            <Text style={styles.errDetail}>({listener.lastError})</Text>
+          </Text>
+        )}
+        {listening && listener.rawText ? <Text style={styles.hearing}>I hear: “{listener.rawText}”</Text> : null}
 
         {answering && (
           <View style={styles.helpRow}>
@@ -252,15 +261,19 @@ export default function PlayScreen({
 
         {answering && !typing && (
           <>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={listening ? 'Done spelling' : 'Tap to spell'}
-              onPress={listening ? listener.stop : startListening}
-              style={({ pressed }) => [styles.mic, listening && styles.micOn, { transform: [{ scale: pressed ? 0.94 : 1 }] }]}
-            >
-              <Text style={styles.micIcon}>{listening ? '✋' : '🎤'}</Text>
-              <Text style={styles.micLabel}>{listening ? "I'm done" : 'Tap & spell'}</Text>
-            </Pressable>
+            <View style={styles.micWrap}>
+              {listening && <View style={[styles.micRing, { transform: [{ scale: 1 + listener.volume / 12 }] }]} />}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={listening ? 'Stop' : 'Start spelling'}
+                onPress={listening ? listener.stop : startListening}
+                style={({ pressed }) => [styles.mic, listening && styles.micOn, { transform: [{ scale: pressed ? 0.94 : 1 }] }]}
+              >
+                <Text style={styles.micIcon}>{listening ? '⏹️' : '🎤'}</Text>
+                <Text style={styles.micLabel}>{listening ? 'Stop' : 'Start\nspelling'}</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.micHint}>{listening ? 'Spell the word out loud, then tap Stop' : 'Tap Start, then say each letter'}</Text>
             <Pressable onPress={() => setTyping(true)} hitSlop={10}>
               <Text style={styles.link}>⌨️ Tap letters instead</Text>
             </Pressable>
@@ -358,10 +371,15 @@ const styles = StyleSheet.create({
   tileText: { fontSize: 24, fontWeight: '900', color: C.brown },
   note: { fontSize: 15, color: C.brown, backgroundColor: '#FFF0C2', padding: 12, borderRadius: 14, marginTop: 12, maxWidth: 380, textAlign: 'center' },
   helpRow: { flexDirection: 'row', gap: 8, marginTop: 14, flexWrap: 'wrap', justifyContent: 'center' },
-  mic: { marginTop: 16, width: 150, height: 150, borderRadius: 75, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 8, borderColor: 'rgba(0,0,0,0.2)' },
+  micWrap: { marginTop: 16, width: 170, height: 170, alignItems: 'center', justifyContent: 'center' },
+  micRing: { position: 'absolute', width: 170, height: 170, borderRadius: 85, backgroundColor: 'rgba(239,83,80,0.25)' },
+  micHint: { fontSize: 15, color: C.gray, fontWeight: '700', marginTop: 6 },
+  hearing: { fontSize: 16, color: C.purple, fontStyle: 'italic', marginTop: 10, textAlign: 'center' },
+  errDetail: { fontSize: 12, color: C.gray },
+  mic: { width: 160, height: 160, borderRadius: 80, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 8, borderColor: 'rgba(0,0,0,0.2)' },
   micOn: { backgroundColor: C.red },
   micIcon: { fontSize: 54 },
-  micLabel: { fontSize: 18, color: C.white, fontWeight: '800', marginTop: 2 },
+  micLabel: { fontSize: 20, color: C.white, fontWeight: '900', marginTop: 2, textAlign: 'center' },
   link: { fontSize: 17, color: C.purple, fontWeight: '700', marginTop: 14 },
   keyboard: { alignItems: 'center', marginTop: 12, width: '100%', maxWidth: 420 },
   typedBox: { minHeight: 54, minWidth: 220, borderRadius: 14, backgroundColor: C.white, borderWidth: 3, borderColor: C.honey, justifyContent: 'center', paddingHorizontal: 12, marginBottom: 10 },
